@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+
+/*
+  Design tokens — constitution Principle III: defined once here, referenced everywhere.
+  Hard-coded hex values or pixel spacing in feature code is a blocking defect.
+  Contrast pairs below are verified at >= 4.5:1 (WCAG 2.2 AA).
+*/
+@theme {
+  --color-background: #fdfdfc;
+  --color-surface: #ffffff;
+  --color-foreground: #1a1a1a;
+  --color-muted: #f4f3f0;
+  --color-muted-foreground: #57534e;
+
+  --color-primary: #0f5c4d;
+  --color-primary-hover: #0b463b;
+  --color-primary-foreground: #ffffff;
+
+  --color-border: #d9d6d0;
+  --color-ring: #0f5c4d;
+
+  --color-danger: #b42318;
+  --color-danger-foreground: #ffffff;
+  --color-danger-surface: #fef3f2;
+
+  --color-success: #12674b;
+  --color-success-surface: #edfdf5;
+
+  --color-warning: #8a5a00;
+  --color-warning-surface: #fffaeb;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+/* Mobile-first base. Every screen is verified at 375px before merge. */
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Visible focus states are non-negotiable (Principle III). */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
