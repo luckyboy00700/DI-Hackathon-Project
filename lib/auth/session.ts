@@ -1,5 +1,8 @@
+import { headers } from 'next/headers';
 import { getServerClient } from '@/lib/db/client';
 import type { AccountType } from '@/lib/validation/enums';
+
+export { dashboardPathForAccountType, type DashboardPath } from '@/lib/dashboard-path';
 
 export type SessionUser = {
   id: string;
@@ -37,10 +40,20 @@ export async function requireSessionUser(expected?: AccountType): Promise<Sessio
   return user;
 }
 
-/** Email OTP sign-in: no password to store, no reset flow to build. */
+/**
+ * Email OTP sign-in: no password to store, no reset flow to build. emailRedirectTo matters even
+ * though the local dev template only shows a 6-digit code — a hosted project without custom SMTP
+ * cannot have its template edited, so its email shows a clickable link instead, and that link
+ * needs somewhere in this app to land (/auth/callback).
+ */
 export async function sendLoginCode(email: string): Promise<void> {
   const supabase = await getServerClient();
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  const headerList = await headers();
+  const origin = `${headerList.get('x-forwarded-proto') ?? 'http'}://${headerList.get('host')}`;
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${origin}/auth/callback` },
+  });
   if (error) throw new Error('OTP_SEND_FAILED');
 }
 
@@ -53,13 +66,4 @@ export async function verifyLoginCode(email: string, token: string): Promise<voi
 export async function signOut(): Promise<void> {
   const supabase = await getServerClient();
   await supabase.auth.signOut();
-}
-
-export type DashboardPath = '/dashboard' | '/dashboard/business' | '/dashboard/masjid';
-
-/** Where each role lands after signing in, and the persistent "Dashboard" link points to. */
-export function dashboardPathForAccountType(accountType: AccountType): DashboardPath {
-  if (accountType === 'business') return '/dashboard/business';
-  if (accountType === 'organization') return '/dashboard/masjid';
-  return '/dashboard';
 }

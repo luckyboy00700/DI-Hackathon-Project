@@ -91,7 +91,11 @@ function CodeStage({
 }) {
   return (
     <form action={onSubmit} className="flex flex-col gap-4">
-      <Field label="6-digit code" htmlFor="token" hint={`Sent to ${email}.`}>
+      <Field
+        label="6-digit code"
+        htmlFor="token"
+        hint={`Sent to ${email}. If your email shows a link instead of a code, click that link.`}
+      >
         <Input
           id="token"
           name="token"
