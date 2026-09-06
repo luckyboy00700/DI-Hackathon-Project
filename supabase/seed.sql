@@ -3,8 +3,12 @@
 
 set search_path = public, extensions;
 
--- Deterministic demo accounts (referenced by quickstart.md and the E2E specs).
-create or replace function seed_user(p_email text)
+-- Password hashing for demo accounts (email + password auth — see lib/auth/session.ts).
+create extension if not exists pgcrypto with schema extensions;
+
+-- Deterministic demo accounts (referenced by quickstart.md and the E2E specs). Every seeded
+-- account shares one demo password.
+create or replace function seed_user(p_email text, p_password text)
 returns uuid
 language plpgsql
 as $$
@@ -17,7 +21,7 @@ begin
     email_confirmed_at, created_at, updated_at,
     confirmation_token, recovery_token, email_change_token_new, email_change)
   values (new_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-    p_email, '', now(), now(), now(), '', '', '', '');
+    p_email, crypt(p_password, gen_salt('bf')), now(), now(), now(), '', '', '', '');
   return new_id;
 end;
 $$;
@@ -40,7 +44,7 @@ begin
   -- Vouching organization / ops actor. Bootstrapped as already-verified: it is the network's
   -- first trusted node, the same way a real pilot would manually seed one founding masjid before
   -- any peer-review chain can start.
-  ops_id := seed_user('masjid.alnoor@example.test');
+  ops_id := seed_user('masjid.alnoor@example.test', 'amanah123');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code)
   values (ops_id, 'organization', 'Masjid Al-Noor Community Hub',
     ST_SetSRID(ST_MakePoint(-83.05, 42.33), 4326)::geography, '48201');
@@ -48,7 +52,7 @@ begin
   values (ops_id, 'verified', ops_id, now());
 
   -- Verified demo business
-  business_id := seed_user('rahman.electric@example.test');
+  business_id := seed_user('rahman.electric@example.test', 'amanah123');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code)
   values (business_id, 'business', 'Rahman Electric',
     ST_SetSRID(ST_MakePoint(-83.06, 42.34), 4326)::geography, '48202');
@@ -56,21 +60,21 @@ begin
   perform record_verification_decision(business_id, ops_id, 'verified');
 
   -- Unverified demo business (used to demo the publishing gate)
-  unverified_id := seed_user('newshop@example.test');
+  unverified_id := seed_user('newshop@example.test', 'amanah123');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code)
   values (unverified_id, 'business', 'Northside Woodworks (unverified)',
     ST_SetSRID(ST_MakePoint(-83.10, 42.36), 4326)::geography, '48203');
   insert into businesses (profile_id, trade_categories) values (unverified_id, '{carpentry}');
 
   -- Demo apprentices: one minor (Yusuf, the spec's primary journey) and one adult
-  minor_id := seed_user('yusuf@example.test');
+  minor_id := seed_user('yusuf@example.test', 'amanah123');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code, date_of_birth,
     guardian_contact)
   values (minor_id, 'apprentice', 'Yusuf A.',
     ST_SetSRID(ST_MakePoint(-83.04, 42.32), 4326)::geography, '48201', '2009-03-14',
     '{"name": "Guardian A.", "email": "guardian@example.test"}'::jsonb);
 
-  adult_id := seed_user('amina@example.test');
+  adult_id := seed_user('amina@example.test', 'amanah123');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code, date_of_birth)
   values (adult_id, 'apprentice', 'Amina S.',
     ST_SetSRID(ST_MakePoint(-83.08, 42.30), 4326)::geography, '48204', '2005-11-02');
@@ -84,7 +88,7 @@ begin
 
   -- ~10x pilot scale: 40 verified businesses, 300 open placements spread over the metro area.
   for i in 1..40 loop
-    b_id := seed_user(format('business%s@example.test', i));
+    b_id := seed_user(format('business%s@example.test', i), 'amanah123');
     insert into profiles (id, account_type, display_name, coarse_location, postal_code)
     values (b_id, 'business', format('Demo Trade Co. %s', i),
       ST_SetSRID(ST_MakePoint(-83.05 + (random() - 0.5) * 0.6, 42.33 + (random() - 0.5) * 0.6),
@@ -117,4 +121,4 @@ begin
   end loop;
 end $$;
 
-drop function seed_user(text);
+drop function seed_user(text, text);

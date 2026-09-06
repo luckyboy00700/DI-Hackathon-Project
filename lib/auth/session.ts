@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { getServerClient } from '@/lib/db/client';
 import type { AccountType } from '@/lib/validation/enums';
 
@@ -40,30 +39,11 @@ export async function requireSessionUser(expected?: AccountType): Promise<Sessio
   return user;
 }
 
-/**
- * Email OTP sign-in: no password to store, no reset flow to build. emailRedirectTo matters even
- * though the local dev template only shows a 6-digit code — a hosted project without custom SMTP
- * cannot have its template edited, so its email shows a clickable link instead, and that link
- * needs somewhere in this app to land (/auth/callback).
- */
-export async function sendLoginCode(email: string): Promise<void> {
+/** Email + password sign-in. No email sending involved, so nothing to configure SMTP-wise. */
+export async function signInWithPassword(email: string, password: string): Promise<void> {
   const supabase = await getServerClient();
-  const headerList = await headers();
-  const origin = `${headerList.get('x-forwarded-proto') ?? 'http'}://${headerList.get('host')}`;
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
-  });
-  if (error) {
-    console.error('OTP_SEND_FAILED:', error.message);
-    throw new Error(`OTP_SEND_FAILED: ${error.message}`);
-  }
-}
-
-export async function verifyLoginCode(email: string, token: string): Promise<void> {
-  const supabase = await getServerClient();
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) throw new Error('OTP_INVALID');
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error('INVALID_CREDENTIALS');
 }
 
 export async function signOut(): Promise<void> {
