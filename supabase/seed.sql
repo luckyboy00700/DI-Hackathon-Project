@@ -37,12 +37,15 @@ declare
   hazards age_restriction_category[] := array['none','none','none','heavy_equipment',
     'high_voltage','confined_space']::age_restriction_category[];
 begin
-  -- Vouching organization / ops actor
+  -- Vouching organization / ops actor. Bootstrapped as already-verified: it is the network's
+  -- first trusted node, the same way a real pilot would manually seed one founding masjid before
+  -- any peer-review chain can start.
   ops_id := seed_user('masjid.alnoor@example.test');
   insert into profiles (id, account_type, display_name, coarse_location, postal_code)
   values (ops_id, 'organization', 'Masjid Al-Noor Community Hub',
     ST_SetSRID(ST_MakePoint(-83.05, 42.33), 4326)::geography, '48201');
-  insert into organizations (profile_id) values (ops_id);
+  insert into organizations (profile_id, verification_status, verified_by, verified_at)
+  values (ops_id, 'verified', ops_id, now());
 
   -- Verified demo business
   business_id := seed_user('rahman.electric@example.test');

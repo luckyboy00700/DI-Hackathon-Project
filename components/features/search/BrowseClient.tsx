@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge, Card } from '@/components/ui/card';
 import { Field, Select } from '@/components/ui/field';
 import { ErrorState, LoadingState } from '@/components/features/states';
 import { SearchEmptyState } from './EmptyState';
-import { searchPlacements, type SearchResultRow } from '@/app/(public)/search/actions';
+import { useMasjidOptions } from './useMasjidOptions';
+import {
+  searchPlacements,
+  type MasjidOption,
+  type SearchResultRow,
+} from '@/app/(public)/search/actions';
 
 const TRADES = [
   'electrical', 'plumbing', 'carpentry', 'hvac', 'welding', 'masonry',
@@ -21,17 +27,24 @@ type State =
   | { phase: 'error'; message: string };
 
 export function BrowseClient() {
+  const initialMasjid = useSearchParams().get('masjid') ?? '';
+  const ranInitialSearch = useRef(false);
+
   const [radiusKm, setRadiusKm] = useState(25);
   const [trade, setTrade] = useState('');
+  const [organizationId, setOrganizationId] = useState(initialMasjid);
+  const { options: masjidOptions } = useMasjidOptions(true);
   const [state, setState] = useState<State>({ phase: 'idle' });
   const [pending, startTransition] = useTransition();
 
-  function run(nextRadius = radiusKm) {
+  function run(nextRadius = radiusKm, nextOrganizationId = organizationId) {
     setRadiusKm(nextRadius);
+    setOrganizationId(nextOrganizationId);
     startTransition(async () => {
       const result = await searchPlacements({
         distanceKm: nextRadius,
         tradeCategory: trade === '' ? undefined : trade,
+        organizationId: nextOrganizationId === '' ? undefined : nextOrganizationId,
         page: 1,
       });
       setState(
@@ -42,14 +55,24 @@ export function BrowseClient() {
     });
   }
 
+  useEffect(() => {
+    if (initialMasjid && !ranInitialSearch.current) {
+      ranInitialSearch.current = true;
+      run(radiusKm, initialMasjid);
+    }
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <Filters
         radiusKm={radiusKm}
         trade={trade}
+        organizationId={organizationId}
+        masjidOptions={masjidOptions}
         pending={pending}
         onRadiusChange={setRadiusKm}
         onTradeChange={setTrade}
+        onOrganizationChange={setOrganizationId}
         onSearch={() => run()}
       />
       <Results state={state} pending={pending} radiusKm={radiusKm} onWidenRadius={run} />
@@ -60,42 +83,80 @@ export function BrowseClient() {
 function Filters(props: {
   radiusKm: number;
   trade: string;
+  organizationId: string;
+  masjidOptions: MasjidOption[];
   pending: boolean;
   onRadiusChange: (km: number) => void;
   onTradeChange: (trade: string) => void;
+  onOrganizationChange: (organizationId: string) => void;
   onSearch: () => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Distance from you" htmlFor="radius">
-        <Select
-          id="radius"
-          value={props.radiusKm}
-          onChange={(e) => props.onRadiusChange(Number(e.target.value))}
-        >
-          {[5, 10, 25, 50, 100].map((km) => (
-            <option key={km} value={km}>
-              Within {km} km
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      <Field label="Trade" htmlFor="trade" hint="Leave as any to see everything nearby.">
-        <Select id="trade" value={props.trade} onChange={(e) => props.onTradeChange(e.target.value)}>
-          <option value="">Any trade</option>
-          {TRADES.map((t) => (
-            <option key={t} value={t}>
-              {label(t)}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
+      <RadiusField value={props.radiusKm} onChange={props.onRadiusChange} />
+      <TradeField value={props.trade} onChange={props.onTradeChange} />
+      <MasjidField
+        value={props.organizationId}
+        options={props.masjidOptions}
+        onChange={props.onOrganizationChange}
+      />
       <Button onClick={props.onSearch} disabled={props.pending}>
         {props.pending ? 'Searching…' : 'Search placements'}
       </Button>
     </div>
+  );
+}
+
+function RadiusField({ value, onChange }: { value: number; onChange: (km: number) => void }) {
+  return (
+    <Field label="Distance from you" htmlFor="radius">
+      <Select id="radius" value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {[5, 10, 25, 50, 100].map((km) => (
+          <option key={km} value={km}>
+            Within {km} km
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+}
+
+function TradeField({ value, onChange }: { value: string; onChange: (trade: string) => void }) {
+  return (
+    <Field label="Trade" htmlFor="trade" hint="Leave as any to see everything nearby.">
+      <Select id="trade" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Any trade</option>
+        {TRADES.map((t) => (
+          <option key={t} value={t}>
+            {label(t)}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+}
+
+function MasjidField(props: {
+  value: string;
+  options: MasjidOption[];
+  onChange: (organizationId: string) => void;
+}) {
+  return (
+    <Field
+      label="Local masjid"
+      htmlFor="masjid"
+      hint="Subset to placements from businesses that masjid has verified."
+    >
+      <Select id="masjid" value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        <option value="">All masjids</option>
+        {props.options.map((option) => (
+          <option key={option.organizationId} value={option.organizationId}>
+            {option.displayName}
+            {option.distanceKm !== null ? ` — ${option.distanceKm} km` : ''}
+          </option>
+        ))}
+      </Select>
+    </Field>
   );
 }
 

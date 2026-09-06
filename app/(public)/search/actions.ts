@@ -15,6 +15,12 @@ export type SearchResultRow = {
   startWindowStart: string;
 };
 
+export type MasjidOption = {
+  organizationId: string;
+  displayName: string;
+  distanceKm: number | null;
+};
+
 // Not exported: a "use server" module may only export async functions.
 const PAGE_SIZE = 20;
 
@@ -46,6 +52,7 @@ export async function searchPlacements(
       p_start_before: input.startBefore ?? null,
       p_page: input.page,
       p_page_size: PAGE_SIZE,
+      p_organization_id: input.organizationId ?? null,
     });
 
     if (error) return fail(toErrorCode(new Error(error.message)), error.message);
@@ -64,6 +71,34 @@ export async function searchPlacements(
         weeklyHours: Number(row.weekly_hours),
         durationWeeks: Number(row.duration_weeks),
         startWindowStart: row.start_window_start as string,
+      })),
+    };
+  } catch (error) {
+    return fail(toErrorCode(error));
+  }
+}
+
+/**
+ * Local masjids/community hubs with at least one verified business on the board, nearest first.
+ * Backs the front-page and browse-page masjid picker so a caller can subset placements to only
+ * those routed through a hub they trust.
+ */
+export async function listMasjidOptions(): Promise<ActionResult<{ options: MasjidOption[] }>> {
+  try {
+    const supabase = await getServerClient();
+    const { data, error } = await supabase.rpc('list_verifying_organizations', {
+      p_distance_km: 100,
+    });
+
+    if (error) return fail(toErrorCode(new Error(error.message)), error.message);
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    return {
+      ok: true,
+      options: rows.map((row) => ({
+        organizationId: row.organization_id as string,
+        displayName: row.display_name as string,
+        distanceKm: row.distance_km === null ? null : Number(row.distance_km),
       })),
     };
   } catch (error) {

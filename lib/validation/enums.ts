@@ -60,3 +60,14 @@ export type TradeCategory = z.infer<typeof tradeCategory>;
 
 export const endorsementSubjectType = z.enum(['apprentice', 'business']);
 export type EndorsementSubjectType = z.infer<typeof endorsementSubjectType>;
+
+export const businessDocumentType = z.enum([
+  'trade_certification',
+  'business_license',
+  'insurance',
+  'proof_of_business',
+]);
+export type BusinessDocumentType = z.infer<typeof businessDocumentType>;
+
+export const apprenticeDocumentType = z.enum(['liability_waiver', 'volunteer_hours_log']);
+export type ApprenticeDocumentType = z.infer<typeof apprenticeDocumentType>;

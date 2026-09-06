@@ -24,6 +24,11 @@ export const ERROR_MESSAGES = {
     'Competencies can only be signed off while the placement is active — not before it starts or after it ends.',
   NOT_PLACEMENT_MENTOR: 'Only the mentor running this placement can sign off competencies.',
   SELF_ENDORSEMENT_REJECTED: 'An organization cannot endorse itself or a business it operates.',
+  SELF_ORG_VERIFICATION_REJECTED: 'An organization cannot verify itself.',
+  ACTOR_ORG_NOT_VERIFIED:
+    'Only a verified organization can review another organization’s certification.',
+  ORGANIZATION_NOT_FOUND: 'We could not find that organization.',
+  INCORRECT_DOCUMENTATION: 'Incorrect documentation.',
   UNEXPECTED: 'Something went wrong on our side. Please try again.',
 } as const;
 

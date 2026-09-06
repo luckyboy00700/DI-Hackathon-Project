@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   ageRestrictionCategory,
+  apprenticeDocumentType,
+  businessDocumentType,
   endorsementSubjectType,
   tradeCategory,
   withdrawalReasonCategory,
@@ -24,6 +26,7 @@ export const searchPlacementsInput = z.object({
   startAfter: isoDate.optional(),
   startBefore: isoDate.optional(),
   page: z.number().int().min(1).default(1),
+  organizationId: uuid.optional(),
 });
 export type SearchPlacementsInput = z.infer<typeof searchPlacementsInput>;
 
@@ -81,3 +84,35 @@ export const endorseInput = z.object({
   subjectId: uuid,
 });
 export type EndorseInput = z.infer<typeof endorseInput>;
+
+export const submitOrganizationCertificationInput = z.object({
+  documentPath: z.string().min(1).max(400),
+  note: z.string().max(500).optional(),
+});
+export type SubmitOrganizationCertificationInput = z.infer<
+  typeof submitOrganizationCertificationInput
+>;
+
+export const decideOrganizationVerificationInput = z.object({
+  organizationId: uuid,
+  decision: z.enum(['verified', 'revoked']),
+});
+export type DecideOrganizationVerificationInput = z.infer<
+  typeof decideOrganizationVerificationInput
+>;
+
+export const submitBusinessDocumentInput = z.object({
+  documentType: businessDocumentType,
+  label: z.string().min(2).max(120),
+  documentPath: z.string().min(1).max(400),
+  expiresOn: isoDate.optional(),
+});
+export type SubmitBusinessDocumentInput = z.infer<typeof submitBusinessDocumentInput>;
+
+export const submitApprenticeDocumentInput = z.object({
+  documentType: apprenticeDocumentType,
+  documentPath: z.string().min(1).max(400),
+  applicationId: uuid.optional(),
+  note: z.string().max(500).optional(),
+});
+export type SubmitApprenticeDocumentInput = z.infer<typeof submitApprenticeDocumentInput>;

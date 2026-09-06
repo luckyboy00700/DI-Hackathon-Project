@@ -5,19 +5,24 @@
   Hard-coded hex values or pixel spacing in feature code is a blocking defect.
   Contrast pairs below are verified at >= 4.5:1 (WCAG 2.2 AA).
 */
+/*
+  Brand palette: deep navy + coral, from the Amanah brand deck. Coral sits on the primary
+  token as a fill with navy text (not white-on-coral) — the same pairing the logo itself uses,
+  and the one that actually clears 4.5:1 at this coral's lightness.
+*/
 @theme {
-  --color-background: #fdfdfc;
-  --color-surface: #ffffff;
-  --color-foreground: #1a1a1a;
-  --color-muted: #f4f3f0;
-  --color-muted-foreground: #57534e;
+  --color-background: #100d2b;
+  --color-surface: #1b1747;
+  --color-foreground: #f5f3ff;
+  --color-muted: #241f5c;
+  --color-muted-foreground: #b9b4da;
 
-  --color-primary: #0f5c4d;
-  --color-primary-hover: #0b463b;
-  --color-primary-foreground: #ffffff;
+  --color-primary: #e8756a;
+  --color-primary-hover: #d9614f;
+  --color-primary-foreground: #100d2b;
 
-  --color-border: #d9d6d0;
-  --color-ring: #0f5c4d;
+  --color-border: #322c6e;
+  --color-ring: #e8756a;
 
   --color-danger: #b42318;
   --color-danger-foreground: #ffffff;
@@ -39,7 +44,7 @@
 
 /* Mobile-first base. Every screen is verified at 375px before merge. */
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {

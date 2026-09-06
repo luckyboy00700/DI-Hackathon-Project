@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { BrowseClient } from '@/components/features/search/BrowseClient';
 
 export const metadata = { title: 'Browse placements — Amanah' };
@@ -10,7 +11,9 @@ export default function BrowsePage() {
         Only verified businesses appear here, and placements you are not old enough for are never
         shown.
       </p>
-      <BrowseClient />
+      <Suspense>
+        <BrowseClient />
+      </Suspense>
     </>
   );
 }

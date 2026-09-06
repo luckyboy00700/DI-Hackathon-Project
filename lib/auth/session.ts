@@ -49,3 +49,8 @@ export async function verifyLoginCode(email: string, token: string): Promise<voi
   const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
   if (error) throw new Error('OTP_INVALID');
 }
+
+export async function signOut(): Promise<void> {
+  const supabase = await getServerClient();
+  await supabase.auth.signOut();
+}
