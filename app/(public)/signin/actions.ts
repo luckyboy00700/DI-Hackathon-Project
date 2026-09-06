@@ -2,7 +2,13 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { sendLoginCode, verifyLoginCode } from '@/lib/auth/session';
+import {
+  dashboardPathForAccountType,
+  getSessionUser,
+  sendLoginCode,
+  verifyLoginCode,
+  type DashboardPath,
+} from '@/lib/auth/session';
 import { fail, toErrorCode, type ActionResult } from '@/lib/errors';
 
 const emailInput = z.object({ email: z.string().email() });
@@ -24,14 +30,20 @@ export async function requestLoginCode(raw: unknown): Promise<ActionResult<{ sen
   }
 }
 
-export async function confirmLoginCode(raw: unknown): Promise<ActionResult<{ signedIn: true }>> {
+export async function confirmLoginCode(
+  raw: unknown,
+): Promise<ActionResult<{ signedIn: true; redirectTo: DashboardPath | '/' }>> {
   const parsed = codeInput.safeParse(raw);
   if (!parsed.success) return fail('INVALID_INPUT', 'Enter the 6-digit code from your email.');
 
   try {
     await verifyLoginCode(parsed.data.email, parsed.data.token);
     revalidatePath('/', 'layout');
-    return { ok: true, signedIn: true };
+    const user = await getSessionUser();
+    const redirectTo: DashboardPath | '/' = user
+      ? dashboardPathForAccountType(user.accountType)
+      : '/';
+    return { ok: true, signedIn: true, redirectTo };
   } catch {
     return fail('INVALID_INPUT', 'That code was not recognised. Request a new one and try again.');
   }

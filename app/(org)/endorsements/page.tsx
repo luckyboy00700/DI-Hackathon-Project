@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerClient } from '@/lib/db/client';
 import { getSessionUser } from '@/lib/auth/session';
 import { EndorseForm, type Candidate } from '@/components/features/profile/EndorseForm';
-import { EndorsementList, type EndorsementReference } from '@/components/features/profile/EndorsementList';
+import { GivenVouchList, type GivenVouch } from '@/components/features/profile/GivenVouchList';
 
 export const metadata = { title: 'Community references — Amanah' };
 
@@ -27,20 +27,38 @@ async function loadCandidates(supabase: Supabase, organizationId: string): Promi
     .map((row) => ({ id: row.id, name: row.display_name, subjectType: 'business' as const }));
 }
 
-async function loadOwnEndorsements(
-  supabase: Supabase,
-  organizationId: string,
-  organizationName: string,
-): Promise<EndorsementReference[]> {
+async function loadGivenVouches(supabase: Supabase, organizationId: string): Promise<GivenVouch[]> {
   const { data } = await supabase
     .from('endorsements')
-    .select('id, created_at')
+    .select('id, created_at, subject_type, apprentice_subject_id, business_subject_id')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false });
 
-  return ((data ?? []) as Array<{ id: string; created_at: string }>).map((row) => ({
+  const rows = (data ?? []) as Array<{
+    id: string;
+    created_at: string;
+    subject_type: 'apprentice' | 'business';
+    apprentice_subject_id: string | null;
+    business_subject_id: string | null;
+  }>;
+  if (rows.length === 0) return [];
+
+  const subjectIds = rows.map((r) => r.apprentice_subject_id ?? r.business_subject_id) as string[];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', subjectIds);
+  const names = new Map(
+    ((profiles ?? []) as Array<{ id: string; display_name: string }>).map((p) => [
+      p.id,
+      p.display_name,
+    ]),
+  );
+
+  return rows.map((row) => ({
     id: row.id,
-    organizationName,
+    subjectName: names.get(row.apprentice_subject_id ?? row.business_subject_id ?? '') ?? 'Member',
+    subjectType: row.subject_type,
     createdAt: row.created_at,
   }));
 }
@@ -52,7 +70,7 @@ export default async function EndorsementsPage() {
   const supabase = await getServerClient();
   const [candidates, given] = await Promise.all([
     loadCandidates(supabase, user.id),
-    loadOwnEndorsements(supabase, user.id, user.displayName),
+    loadGivenVouches(supabase, user.id),
   ]);
 
   return (
@@ -65,8 +83,7 @@ export default async function EndorsementsPage() {
 
       <EndorseForm candidates={candidates} />
 
-      <h2 className="text-lg font-semibold">References you have given</h2>
-      <EndorsementList endorsements={given} subjectLabel="anyone yet" />
+      <GivenVouchList vouches={given} />
     </>
   );
 }

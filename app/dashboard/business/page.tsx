@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs } from '@/components/ui/tabs';
 import { EmptyState, ErrorState } from '@/components/features/states';
 import { ERROR_MESSAGES } from '@/lib/errors';
+import { WrongRoleNotice } from '@/components/features/dashboard/WrongRoleNotice';
 import { DecideButtons } from '@/components/features/applications/DecideButtons';
 import { BusinessDocumentUpload } from '@/components/features/documents/BusinessDocumentUpload';
 import {
@@ -90,6 +91,18 @@ export default async function BusinessDashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect('/signin');
 
+  if (user.accountType !== 'business') {
+    return (
+      <WrongRoleNotice
+        roleLabel="businesses"
+        otherDashboards={[
+          { href: '/dashboard', label: 'apprentices' },
+          { href: '/dashboard/masjid', label: 'organizations' },
+        ]}
+      />
+    );
+  }
+
   const supabase = await getServerClient();
   const [{ data: business }, applicants, documents] = await Promise.all([
     supabase.from('businesses').select('verification_status').eq('profile_id', user.id).maybeSingle(),
@@ -114,27 +127,36 @@ export default async function BusinessDashboardPage() {
         <Button className="w-full sm:w-auto">Publish a placement</Button>
       </Link>
 
-      <Tabs
-        tabs={[
-          {
-            id: 'board',
-            label: 'Apprenticeships',
-            content: <ApprenticeshipsBoard active={active} pending={pending} completed={completed} />,
-          },
-          {
-            id: 'applicants',
-            label: 'Applicants',
-            content: <ApplicantsQueue rows={pending} />,
-          },
-          {
-            id: 'verification',
-            label: 'Verification',
-            content: <VerificationPanel rows={documents} />,
-          },
-        ]}
-      />
+      <Tabs tabs={buildTabs({ active, pending, completed, documents })} />
     </>
   );
+}
+
+function buildTabs(data: {
+  active: ApplicantRow[];
+  pending: ApplicantRow[];
+  completed: ApplicantRow[];
+  documents: BusinessDocumentRow[];
+}) {
+  return [
+    {
+      id: 'board',
+      label: 'Apprenticeships',
+      content: (
+        <ApprenticeshipsBoard active={data.active} pending={data.pending} completed={data.completed} />
+      ),
+    },
+    {
+      id: 'applicants',
+      label: 'Applicants',
+      content: <ApplicantsQueue rows={data.pending} />,
+    },
+    {
+      id: 'verification',
+      label: 'Verification',
+      content: <VerificationPanel rows={data.documents} />,
+    },
+  ];
 }
 
 function ApprenticeshipsBoard({

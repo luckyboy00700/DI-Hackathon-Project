@@ -75,6 +75,13 @@ begin
   values (adult_id, 'apprentice', 'Amina S.',
     ST_SetSRID(ST_MakePoint(-83.08, 42.30), 4326)::geography, '48204', '2005-11-02');
 
+  -- Community vouches (FR-004/FR-005): the masjid vouching for members it knows personally, so
+  -- the Action Center's references list has real rows rather than an empty demo.
+  insert into endorsements (organization_id, subject_type, apprentice_subject_id)
+  values (ops_id, 'apprentice', minor_id), (ops_id, 'apprentice', adult_id);
+  insert into endorsements (organization_id, subject_type, business_subject_id)
+  values (ops_id, 'business', business_id);
+
   -- ~10x pilot scale: 40 verified businesses, 300 open placements spread over the metro area.
   for i in 1..40 loop
     b_id := seed_user(format('business%s@example.test', i));

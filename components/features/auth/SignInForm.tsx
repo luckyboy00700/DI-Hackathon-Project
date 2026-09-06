@@ -40,7 +40,7 @@ export function SignInForm() {
         return;
       }
       setError(null);
-      router.push('/');
+      router.push(result.redirectTo);
       router.refresh();
     });
   }

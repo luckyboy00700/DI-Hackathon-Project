@@ -3,6 +3,7 @@ import { getServerClient } from '@/lib/db/client';
 import { getSessionUser } from '@/lib/auth/session';
 import { Badge, Card } from '@/components/ui/card';
 import { Tabs } from '@/components/ui/tabs';
+import { WrongRoleNotice } from '@/components/features/dashboard/WrongRoleNotice';
 import { EmptyState } from '@/components/features/states';
 import { CertificationUpload } from '@/components/features/verification/CertificationUpload';
 import {
@@ -10,10 +11,7 @@ import {
   type PendingOrganization,
 } from '@/components/features/verification/OrganizationReviewList';
 import { EndorseForm, type Candidate } from '@/components/features/profile/EndorseForm';
-import {
-  EndorsementList,
-  type EndorsementReference,
-} from '@/components/features/profile/EndorsementList';
+import { GivenVouchList, type GivenVouch } from '@/components/features/profile/GivenVouchList';
 
 export const metadata = { title: 'Your dashboard — Amanah' };
 
@@ -129,54 +127,70 @@ async function loadDirectory(supabase: Supabase, masjidId: string): Promise<Dire
   }));
 }
 
-/** Businesses and apprentices this organization may vouch for — excluding operated businesses. */
+/**
+ * Businesses this organization may vouch for, excluding any it operates itself (FR-004).
+ * Apprentices are deliberately not offered here: there is no RLS grant letting an organization
+ * browse apprentice profiles it hasn't already vouched for (Principle VI — see 0024), and a
+ * platform-wide dropdown of apprentice names is not something this app does anywhere else. An
+ * organization can still vouch for a specific apprentice it already knows by other means; this
+ * list is only the discoverable "who can I vouch for" surface.
+ */
 async function loadVouchCandidates(supabase: Supabase, organizationId: string): Promise<Candidate[]> {
-  const [{ data: businesses }, { data: apprentices }, { data: operated }, { data: given }] =
-    await Promise.all([
-      supabase.from('profiles').select('id, display_name').eq('account_type', 'business'),
-      supabase.from('profiles').select('id, display_name').eq('account_type', 'apprentice'),
-      supabase
-        .from('organization_operated_businesses')
-        .select('business_id')
-        .eq('organization_id', organizationId),
-      supabase.from('endorsements').select('business_subject_id, apprentice_subject_id')
-        .eq('organization_id', organizationId),
-    ]);
+  const [{ data: businesses }, { data: operated }, { data: given }] = await Promise.all([
+    supabase.from('profiles').select('id, display_name').eq('account_type', 'business'),
+    supabase
+      .from('organization_operated_businesses')
+      .select('business_id')
+      .eq('organization_id', organizationId),
+    supabase.from('endorsements').select('business_subject_id').eq('organization_id', organizationId),
+  ]);
 
   const excluded = new Set(
     ((operated ?? []) as Array<{ business_id: string }>).map((row) => row.business_id),
   );
   const vouchedFor = new Set(
-    ((given ?? []) as Array<{ business_subject_id: string | null; apprentice_subject_id: string | null }>)
-      .map((row) => row.business_subject_id ?? row.apprentice_subject_id)
+    ((given ?? []) as Array<{ business_subject_id: string | null }>)
+      .map((row) => row.business_subject_id)
       .filter(Boolean),
   );
 
-  const businessCandidates = ((businesses ?? []) as Array<{ id: string; display_name: string }>)
+  return ((businesses ?? []) as Array<{ id: string; display_name: string }>)
     .filter((row) => row.id !== organizationId && !excluded.has(row.id) && !vouchedFor.has(row.id))
     .map((row) => ({ id: row.id, name: row.display_name, subjectType: 'business' as const }));
-
-  const apprenticeCandidates = ((apprentices ?? []) as Array<{ id: string; display_name: string }>)
-    .filter((row) => !vouchedFor.has(row.id))
-    .map((row) => ({ id: row.id, name: row.display_name, subjectType: 'apprentice' as const }));
-
-  return [...businessCandidates, ...apprenticeCandidates];
 }
 
-async function loadOwnEndorsements(
-  supabase: Supabase,
-  organizationId: string,
-  organizationName: string,
-): Promise<EndorsementReference[]> {
+async function loadGivenVouches(supabase: Supabase, organizationId: string): Promise<GivenVouch[]> {
   const { data } = await supabase
     .from('endorsements')
-    .select('id, created_at')
+    .select('id, created_at, subject_type, apprentice_subject_id, business_subject_id')
     .eq('organization_id', organizationId)
     .order('created_at', { ascending: false });
 
-  return ((data ?? []) as Array<{ id: string; created_at: string }>).map((row) => ({
+  const rows = (data ?? []) as Array<{
+    id: string;
+    created_at: string;
+    subject_type: 'apprentice' | 'business';
+    apprentice_subject_id: string | null;
+    business_subject_id: string | null;
+  }>;
+  if (rows.length === 0) return [];
+
+  const subjectIds = rows.map((r) => r.apprentice_subject_id ?? r.business_subject_id) as string[];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, display_name')
+    .in('id', subjectIds);
+  const names = new Map(
+    ((profiles ?? []) as Array<{ id: string; display_name: string }>).map((p) => [
+      p.id,
+      p.display_name,
+    ]),
+  );
+
+  return rows.map((row) => ({
     id: row.id,
-    organizationName,
+    subjectName: names.get(row.apprentice_subject_id ?? row.business_subject_id ?? '') ?? 'Member',
+    subjectType: row.subject_type,
     createdAt: row.created_at,
   }));
 }
@@ -187,12 +201,13 @@ export default async function OrganizationDashboardPage() {
 
   if (user.accountType !== 'organization') {
     return (
-      <>
-        <h1 className="text-2xl font-semibold">Your dashboard</h1>
-        <p className="text-base text-muted-foreground">
-          This dashboard is for organizations — masjids and other community hubs.
-        </p>
-      </>
+      <WrongRoleNotice
+        roleLabel="organizations — masjids and other community hubs"
+        otherDashboards={[
+          { href: '/dashboard', label: 'apprentices' },
+          { href: '/dashboard/business', label: 'businesses' },
+        ]}
+      />
     );
   }
 
@@ -202,7 +217,7 @@ export default async function OrganizationDashboardPage() {
     loadPendingOrganizations(supabase, user.id),
     loadDirectory(supabase, user.id),
     loadVouchCandidates(supabase, user.id),
-    loadOwnEndorsements(supabase, user.id, user.displayName),
+    loadGivenVouches(supabase, user.id),
   ]);
 
   return (
@@ -294,7 +309,7 @@ function ActionCenterPanel({
 }: {
   pending: PendingOrganization[];
   candidates: Candidate[];
-  given: EndorsementReference[];
+  given: GivenVouch[];
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -306,7 +321,7 @@ function ActionCenterPanel({
         <h2 className="text-lg font-semibold">Issue a community vouch</h2>
         <EndorseForm candidates={candidates} />
       </div>
-      <EndorsementList endorsements={given} subjectLabel="anyone yet" />
+      <GivenVouchList vouches={given} />
     </div>
   );
 }

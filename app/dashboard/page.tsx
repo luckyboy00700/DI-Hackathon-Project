@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import { Badge, Card } from '@/components/ui/card';
 import { Tabs } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/features/states';
+import { WrongRoleNotice } from '@/components/features/dashboard/WrongRoleNotice';
 import { ApprenticeDocumentUpload } from '@/components/features/documents/ApprenticeDocumentUpload';
 import {
   ApprenticeDocumentList,
@@ -177,6 +178,18 @@ export default async function ApprenticeDashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect('/signin');
 
+  if (user.accountType !== 'apprentice') {
+    return (
+      <WrongRoleNotice
+        roleLabel="apprentices"
+        otherDashboards={[
+          { href: '/dashboard/business', label: 'businesses' },
+          { href: '/dashboard/masjid', label: 'organizations' },
+        ]}
+      />
+    );
+  }
+
   const supabase = await getServerClient();
   const { applications, applicationIds } = await loadApplications(supabase, user.id);
   const [agreements, guardianConsents, documents, passport] = await Promise.all([
@@ -190,33 +203,45 @@ export default async function ApprenticeDashboardPage() {
     <>
       <h1 className="text-2xl font-semibold">Your dashboard</h1>
       <Tabs
-        tabs={[
-          {
-            id: 'passport',
-            label: 'Skill Passport',
-            content: <PassportPanel entries={passport.entries} shareToken={passport.shareToken} />,
-          },
-          {
-            id: 'placements',
-            label: 'Placements',
-            content: <PlacementsPanel applications={applications} />,
-          },
-          {
-            id: 'documents',
-            label: 'Documents',
-            content: (
-              <DocumentsPanel guardianConsents={guardianConsents} documents={documents} />
-            ),
-          },
-          {
-            id: 'agreements',
-            label: 'Agreements',
-            content: <AgreementsPanel agreements={agreements} />,
-          },
-        ]}
+        tabs={buildTabs({ applications, agreements, guardianConsents, documents, passport })}
       />
     </>
   );
+}
+
+function buildTabs(data: {
+  applications: ApplicationRow[];
+  agreements: AgreementRow[];
+  guardianConsents: GuardianConsentRow[];
+  documents: ApprenticeDocumentRow[];
+  passport: { entries: PassportRow[]; shareToken: string | undefined };
+}) {
+  return [
+    {
+      id: 'passport',
+      label: 'Skill Passport',
+      content: (
+        <PassportPanel entries={data.passport.entries} shareToken={data.passport.shareToken} />
+      ),
+    },
+    {
+      id: 'placements',
+      label: 'Placements',
+      content: <PlacementsPanel applications={data.applications} />,
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      content: (
+        <DocumentsPanel guardianConsents={data.guardianConsents} documents={data.documents} />
+      ),
+    },
+    {
+      id: 'agreements',
+      label: 'Agreements',
+      content: <AgreementsPanel agreements={data.agreements} />,
+    },
+  ];
 }
 
 function PassportPanel({

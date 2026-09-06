@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import './globals.css';
 import { fraunces } from '@/lib/fonts';
-import { getSessionUser } from '@/lib/auth/session';
+import { dashboardPathForAccountType, getSessionUser } from '@/lib/auth/session';
 import { Logo } from '@/components/ui/logo';
 import { SignOutButton } from '@/components/features/auth/SignOutButton';
 
@@ -40,6 +40,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   Signed in as{' '}
                   <span className="font-medium text-foreground">{user.displayName}</span>
                 </p>
+                <Link
+                  href={dashboardPathForAccountType(user.accountType)}
+                  className="text-sm font-medium text-primary underline"
+                >
+                  Dashboard
+                </Link>
                 <SignOutButton />
               </div>
             ) : (
