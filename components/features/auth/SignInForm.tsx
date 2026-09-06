@@ -20,7 +20,8 @@ export function SignInForm() {
     startTransition(async () => {
       const result = await requestLoginCode({ email });
       if (!result.ok) {
-        setError(result.message);
+        // TODO(debug): appending detail temporarily while diagnosing hosted OTP send failures.
+        setError(result.detail ? `${result.message} (${result.detail})` : result.message);
         return;
       }
       setError(null);

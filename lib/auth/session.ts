@@ -54,7 +54,10 @@ export async function sendLoginCode(email: string): Promise<void> {
     email,
     options: { emailRedirectTo: `${origin}/auth/callback` },
   });
-  if (error) throw new Error('OTP_SEND_FAILED');
+  if (error) {
+    console.error('OTP_SEND_FAILED:', error.message);
+    throw new Error(`OTP_SEND_FAILED: ${error.message}`);
+  }
 }
 
 export async function verifyLoginCode(email: string, token: string): Promise<void> {

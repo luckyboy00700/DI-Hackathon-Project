@@ -26,7 +26,9 @@ export async function requestLoginCode(raw: unknown): Promise<ActionResult<{ sen
     await sendLoginCode(parsed.data.email);
     return { ok: true, sent: true };
   } catch (error) {
-    return fail(toErrorCode(error));
+    // TODO(debug): detail is temporarily surfaced to the user while diagnosing the hosted
+    // Supabase project's OTP send failure. Drop the detail arg once that's resolved.
+    return fail(toErrorCode(error), error instanceof Error ? error.message : String(error));
   }
 }
 
